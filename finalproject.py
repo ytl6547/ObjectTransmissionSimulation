@@ -33,7 +33,7 @@ class Run:
         self.vc_x = 0
         self.vc_y = 0
         self.vc_theta = 0
-        self.pf = particle_filter.ParticleFilter(self.map, 1500, 0.02, 0.15, 0.2)
+        self.pf = particle_filter.ParticleFilter(self.map, 1500, 0.06, 0.15, 0.2)
         self.step_dist = 0.5
 
         # RRT
@@ -96,6 +96,7 @@ class Run:
     def visualize(self):
         flag = True
         x, y, theta = self.pf.get_estimate()
+        print("Estimated", x, y)
         self.virtual_create.set_pose((x, y, 0.1), theta)
         data = []
         for particle in self.pf._particles:
@@ -112,20 +113,20 @@ class Run:
         return flag
 
     def lookAround(self):
+        converged = False
         angle = -90
         while angle <= 90:
             self.servo.go_to(angle)
             self.time.sleep(2.0)
             distance = self.sonar.get_distance()
-            print(distance)
+            # print(distance)
             self.pf.measure(distance, math.radians(angle))
             angle += 90
-            if self.visualize():
-                self.servo.go_to(0)
-                self.time.sleep(2)
-                return True
+            converged |= self.visualize()
         self.servo.go_to(0)
         self.time.sleep(2)
+        if converged:
+            return True
         return False
 
     def run(self):
@@ -153,7 +154,7 @@ class Run:
 
         while True:
             distance = self.sonar.get_distance()
-            print(distance)
+            # print(distance)
             self.pf.measure(distance, 0)
             if self.visualize():
                 break
@@ -207,79 +208,116 @@ class Run:
         # execute the path (essentially waypoint following from lab 6)
 
         # count = 0
-        # while math.sqrt(math.pow(self.odometry.x - 74.095, 2) + math.pow(self.odometry.y - 160, 2)) > 0.15:
-        for i in range(3, len(path)):
-            old_x = self.odometry.x
-            old_y = self.odometry.y
-            old_theta = self.odometry.theta
-            p = path[i]
-            print(p.state)
-            goal_x = p.state[0] / 100.0
-            goal_y = 3 - p.state[1] / 100.0
-            print(goal_x, goal_y)
-            while True:
-                state = self.create.update()
-                if state is not None:
-                    self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
-                    goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
-                    theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
-                    output_theta = self.pidTheta.update(self.odometry.theta, goal_theta, self.time.time())
-                    print("Odometry:", self.odometry.x, self.odometry.y, self.odometry.theta)
-                    print("Goal:", goal_x, goal_y, goal_theta)
-                    self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
-                    # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
+        while math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)) > 0.05:
+            # print("Outer loop", math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)))
+            for i in range(1, len(path)):
+                # print("Inner loop", math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)))
+                old_x = self.odometry.x
+                old_y = self.odometry.y
+                old_theta = self.odometry.theta
+                if math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)) <= 0.05:
+                    break
+                elif math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)) <= 0.3:
 
-                    distance = math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
-                    if i is not len(path)-1:
-                        if distance <= 0.2:
-                            break
-                    else:
-                        if distance <= 0.01:
-                            break
-            self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
-            self.visualize()
+                    goal_x = 0.74095
+                    goal_y = 1.6
+                    goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
+                    self.go_to_angle(goal_theta)
+                    while True:
+                        state = self.create.update()
+                        if state is not None:
+                            self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
+                            goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
+                            output_theta = self.pidTheta.update(self.odometry.theta, goal_theta, self.time.time())
+                            self.create.drive_direct(int(base_speed + output_theta), int(base_speed - output_theta))
+                            distance = math.sqrt(
+                                math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
+                            if distance <= 0.05:
+                                break
+                    self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
+                    self.visualize()
+                    break
+                # if i == len(path)-2:
+                #     i += 1
+
+                p = path[i]
+                # print(p.state)
+                goal_x = p.state[0] / 100.0
+                goal_y = 3 - p.state[1] / 100.0
+                # goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
+                # self.go_to_angle(goal_theta)
+                print("Goal", goal_x, goal_y)
+                while True:
+                    state = self.create.update()
+                    if state is not None:
+                        self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
+                        goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
+                        theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
+                        output_theta = self.pidTheta.update(self.odometry.theta, goal_theta, self.time.time())
+                        # print("Odometry:", self.odometry.x, self.odometry.y, self.odometry.theta)
+                        # print("Goal:", goal_x, goal_y, goal_theta)
+                        self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
+                        # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
+
+                        distance = math.sqrt(math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
+                        if i is not len(path)-1:
+                            if distance <= 0.2:
+                                break
+                        else:
+                            if distance <= 0.01:
+                                break
+                self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
+                self.visualize()
+
+
 
                 # check rebuild the tree
-                # if i % 10 == 0: # or (i == len(path)-1 and math.sqrt(math.pow(self.odometry.x - 74.095, 2) + math.pow(self.odometry.y - 160, 2)) > 20):
-                #     self.create.drive_direct(0, 0)
-                #     if not self.lookAround():
-                #         while True:
-                #             distance = self.sonar.get_distance()
-                #             print(distance)
-                #             self.pf.measure(distance, 0)
-                #             if self.visualize():
-                #                 break
-                #             if distance > self.step_dist + 0.2:
-                #                 self.forward()
-                #                 if self.lookAround():
-                #                     break
-                #             else:
-                #                 self.go_to_angle(self.odometry.theta + math.pi / 2)
-                #                 if self.visualize():
-                #                     break
-                #     self.odometry.x = self.vc_x
-                #     self.odometry.y = self.vc_y
-                #     self.odometry.theta = self.vc_theta
-                #     self.vc_x *= 100
-                #     self.vc_y = 300 - self.vc_y * 100
-                #     print(self.vc_x, self.vc_y)
-                #     self.rrt.build((self.vc_x, self.vc_y), 1500, 20)
-                #
-                #     print("New map built")
-                #
-                #     x_goal = self.rrt.nearest_neighbor((74.095, 160))
-                #
-                #     path = self.rrt.shortest_path(x_goal)
-                #     # for v in self.rrt.T:
-                #     #     # print(v.state)
-                #     #     for u in v.neighbors:
-                #     #         self.map2.draw_line((v.state[0], v.state[1]), (u.state[0], u.state[1]), (0, 0, 0))
-                #     # for idx in range(0, len(path) - 1):
-                #     #     self.map2.draw_line((path[idx].state[0], path[idx].state[1]),
-                #     #                         (path[idx + 1].state[0], path[idx + 1].state[1]), (0, 255, 0))
-                #     #
-                #     # self.map2.save("finalproject_img.png")
-                #     break
+                if i % 10 == 0:
+                    self.create.drive_direct(0, 0)
+                    if not self.lookAround():
+                        while True:
+                            distance = self.sonar.get_distance()
+                            print(distance)
+                            self.pf.measure(distance, 0)
+                            if self.visualize():
+                                break
+                            if distance > self.step_dist + 0.2:
+                                self.forward()
+                                if self.lookAround():
+                                    break
+                            else:
+                                self.go_to_angle(self.odometry.theta + math.pi / 2)
+                                if self.visualize():
+                                    break
+                    if math.sqrt(math.pow(self.odometry.x - self.vc_x, 2) + math.pow(self.odometry.y - self.vc_y, 2)) > 0.1:
+                        print("Drifted too much!")
+                        self.odometry.x = self.vc_x
+                        self.odometry.y = self.vc_y
+                        self.odometry.theta = self.vc_theta
+                        self.vc_x *= 100
+                        self.vc_y = 300 - self.vc_y * 100
+                        print(self.vc_x, self.vc_y)
+                        self.map2 = lab11_map.Map("finalproject_map2_config.png")
+                        self.rrt = rrt.RRT(self.map2)
+                        self.rrt.build((self.vc_x, self.vc_y), 1500, 20)
+
+                        print("New map built")
+
+                        x_goal = self.rrt.nearest_neighbor((74.095, 160))
+
+                        path = self.rrt.shortest_path(x_goal)
+                        for v in self.rrt.T:
+                            # print(v.state)
+                            for u in v.neighbors:
+                                self.map2.draw_line((v.state[0], v.state[1]), (u.state[0], u.state[1]), (0, 0, 0))
+                        for idx in range(0, len(path) - 1):
+                            self.map2.draw_line((path[idx].state[0], path[idx].state[1]),
+                                                (path[idx + 1].state[0], path[idx + 1].state[1]), (0, 255, 0))
+
+                        self.map2.save("finalproject_img.png")
+                        break
+
+
         self.create.drive_direct(0, 0)
 
         # go to pick up glass
