@@ -77,3 +77,8 @@ class ParticleFilter:
         theta = np.average([particle.theta for particle in self._particles], weights=weights)
         return x, y, theta
 
+    def set_param(self, translation_variance, rotation_variance, measurement_variance):
+        self._translation_variance = translation_variance
+        self._rotation_variance = rotation_variance
+        self._measurement_variance = measurement_variance
+

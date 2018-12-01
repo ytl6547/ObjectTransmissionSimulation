@@ -63,7 +63,7 @@ class Run:
         old_theta = self.odometry.theta
         while math.fabs(math.atan2(
             math.sin(goal_theta - self.odometry.theta),
-            math.cos(goal_theta - self.odometry.theta))) > 0.05:
+            math.cos(goal_theta - self.odometry.theta))) > 0.01:
             output_theta = self.pidTheta.update(self.odometry.theta, goal_theta, self.time.time())
             self.create.drive_direct(int(+output_theta), int(-output_theta))
             self.sleep(0.01)
@@ -188,7 +188,7 @@ class Run:
         self.vc_x *= 100
         self.vc_y = 300 - self.vc_y * 100
         print(self.vc_x, self.vc_y)
-        self.rrt.build((self.vc_x, self.vc_y), 1500, 20)
+        self.rrt.build((self.vc_x, self.vc_y), 1500, 30)
 
         x_goal = self.rrt.nearest_neighbor((74.095, 160))
 
@@ -208,6 +208,7 @@ class Run:
         # execute the path (essentially waypoint following from lab 6)
 
         # count = 0
+        self.pf.set_param(0.02, 0.15, 0.1)
         while math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)) > 0.05:
             # print("Outer loop", math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)))
             for i in range(1, len(path)):
@@ -252,10 +253,10 @@ class Run:
                     if state is not None:
                         self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
                         goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
-                        theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
+                        # theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
                         output_theta = self.pidTheta.update(self.odometry.theta, goal_theta, self.time.time())
-                        # print("Odometry:", self.odometry.x, self.odometry.y, self.odometry.theta)
-                        # print("Goal:", goal_x, goal_y, goal_theta)
+                        print("Odometry:", self.odometry.x, self.odometry.y, self.odometry.theta)
+                        print("Goal:", goal_x, goal_y, goal_theta)
                         self.create.drive_direct(int(base_speed+output_theta), int(base_speed-output_theta))
                         # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
 
@@ -319,6 +320,10 @@ class Run:
 
 
         self.create.drive_direct(0, 0)
+        groundTruth = self.create.sim_get_position()
+        print("{},{},{},{},{}".format(self.odometry.x, self.odometry.y, self.odometry.theta * 180 / math.pi,
+                                      groundTruth[0], groundTruth[1]))
+        print("Error", self.odometry.x-0.74095, self.odometry.y-1.6, math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)))
 
         # go to pick up glass
         self.arm.open_gripper()
