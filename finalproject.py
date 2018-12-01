@@ -22,7 +22,7 @@ class Run:
         self.sonar = factory.create_sonar()
         self.arm = factory.create_kuka_lbr4p()
         self.virtual_create = factory.create_virtual_create()
-        # self.virtual_create = factory.create_virtual_create("192.168.1.XXX")
+        # self.virtual_create = factory.create_virtual_create("192.168.1.218")
         self.odometry = odometry.Odometry()
         self.map = lab9_map.Map("finalproject_map2.json")
 
@@ -35,6 +35,8 @@ class Run:
         self.vc_theta = 0
         self.pf = particle_filter.ParticleFilter(self.map, 1500, 0.06, 0.15, 0.2)
         self.step_dist = 0.5
+        self.final_x = 0.59095
+        self.final_y = 1.6
 
         # RRT
         self.map2 = lab11_map.Map("finalproject_map2_config.png")
@@ -132,7 +134,7 @@ class Run:
     def run(self):
         self.create.start()
         self.create.safe()
-
+        self.servo.go_to(0)
         self.create.drive_direct(0, 0)
 
         # self.arm.open_gripper()
@@ -208,20 +210,20 @@ class Run:
         # execute the path (essentially waypoint following from lab 6)
 
         # count = 0
-        self.pf.set_param(0.02, 0.15, 0.1)
-        while math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)) > 0.05:
-            # print("Outer loop", math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)))
+        self.pf.set_param(0.02, 0.05, 0.1)
+        while math.sqrt(math.pow(self.odometry.x - self.final_x, 2) + math.pow(self.odometry.y - self.final_y, 2)) > 0.05:
+            # print("Outer loop", math.sqrt(math.pow(self.odometry.x - self.final_x, 2) + math.pow(self.odometry.y - self.final_y, 2)))
             for i in range(1, len(path)):
-                # print("Inner loop", math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)))
+                # print("Inner loop", math.sqrt(math.pow(self.odometry.x - self.final_x, 2) + math.pow(self.odometry.y - self.final_y, 2)))
                 old_x = self.odometry.x
                 old_y = self.odometry.y
                 old_theta = self.odometry.theta
-                if math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)) <= 0.05:
+                if math.sqrt(math.pow(self.odometry.x - self.final_x, 2) + math.pow(self.odometry.y - self.final_y, 2)) <= 0.05:
                     break
-                elif math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)) <= 0.3:
+                elif math.sqrt(math.pow(self.odometry.x - self.final_x, 2) + math.pow(self.odometry.y - self.final_y, 2)) <= 0.3:
 
-                    goal_x = 0.74095
-                    goal_y = 1.6
+                    goal_x = self.final_x
+                    goal_y = self.final_y
                     goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
                     self.go_to_angle(goal_theta)
                     while True:
@@ -236,6 +238,8 @@ class Run:
                             if distance <= 0.05:
                                 break
                     self.pf.move_by(self.odometry.x - old_x, self.odometry.y - old_y, self.odometry.theta - old_theta)
+                    # self.visualize()
+                    self.go_to_angle(math.pi)
                     self.visualize()
                     break
                 # if i == len(path)-2:
@@ -273,7 +277,7 @@ class Run:
 
 
                 # check rebuild the tree
-                if i % 10 == 0:
+                if i % 5 == 0:
                     self.create.drive_direct(0, 0)
                     if not self.lookAround():
                         while True:
@@ -323,12 +327,12 @@ class Run:
         groundTruth = self.create.sim_get_position()
         print("{},{},{},{},{}".format(self.odometry.x, self.odometry.y, self.odometry.theta * 180 / math.pi,
                                       groundTruth[0], groundTruth[1]))
-        print("Error", self.odometry.x-0.74095, self.odometry.y-1.6, math.sqrt(math.pow(self.odometry.x - 0.74095, 2) + math.pow(self.odometry.y - 1.6, 2)))
+        print("Error", self.odometry.x-self.final_x, self.odometry.y-self.final_y, math.sqrt(math.pow(self.odometry.x - self.final_x, 2) + math.pow(self.odometry.y - self.final_y, 2)))
 
         # go to pick up glass
         self.arm.open_gripper()
         self.time.sleep(1)
-        self.arm.go_to(1, 1.6)
+        self.arm.go_to(1, self.final_y)
         self.time.sleep(3)
         self.arm.go_to(3, .15)
         self.time.sleep(3)
@@ -359,52 +363,52 @@ class Run:
                 self.time.sleep(1)
             self.arm.open_gripper()
             self.time.sleep(5)
-            self.arm.go_to(1, 1.6)
+            self.arm.go_to(1, self.final_y)
             self.time.sleep(1)
             self.arm.go_to(0, -3.1415 / 2)
             self.time.sleep(1)
             self.arm.go_to(1, 0)
             self.arm.go_to(3, 0)
             self.time.sleep(1)
-
-        # go to shelf 1
-        for x in range(0, 35):
-            self.arm.go_to(1, ((140 - x) / 100))
-            self.time.sleep(1)
-            self.arm.go_to(3, x / 100)
-            self.time.sleep(1)
-        for c in range(157, 230):
-            self.arm.go_to(0, -c / 100)
-            self.time.sleep(1)
-        self.arm.open_gripper()
-        self.time.sleep(5)
-        self.arm.go_to(1, .8)
-        self.time.sleep(1)
-        self.arm.go_to(0, -3.1415 / 2)
-        self.time.sleep(1)
-        self.arm.go_to(1, 0)
-        self.arm.go_to(3, 0)
-        self.time.sleep(1)
-
-        # go to shelf 2
-        for x in range(0, 60):
-            self.arm.go_to(1, ((140 - x) / 100))
-            self.time.sleep(1)
-        for y in range(0, 30):
-            self.arm.go_to(3, y / 100)
-            self.time.sleep(1)
-        for c in range(157, 230):
-            self.arm.go_to(0, -c / 100)
-            self.time.sleep(1)
-        self.arm.open_gripper()
-        self.time.sleep(5)
-        self.arm.go_to(1, .6)
-        self.time.sleep(1)
-        self.arm.go_to(0, -3.1415 / 2)
-        self.time.sleep(1)
-        self.arm.go_to(1, 0)
-        self.arm.go_to(3, 0)
-        self.time.sleep(1)
+        #
+        # # go to shelf 1
+        # for x in range(0, 35):
+        #     self.arm.go_to(1, ((140 - x) / 100))
+        #     self.time.sleep(1)
+        #     self.arm.go_to(3, x / 100)
+        #     self.time.sleep(1)
+        # for c in range(157, 230):
+        #     self.arm.go_to(0, -c / 100)
+        #     self.time.sleep(1)
+        # self.arm.open_gripper()
+        # self.time.sleep(5)
+        # self.arm.go_to(1, .8)
+        # self.time.sleep(1)
+        # self.arm.go_to(0, -3.1415 / 2)
+        # self.time.sleep(1)
+        # self.arm.go_to(1, 0)
+        # self.arm.go_to(3, 0)
+        # self.time.sleep(1)
+        #
+        # # go to shelf 2
+        # for x in range(0, 60):
+        #     self.arm.go_to(1, ((140 - x) / 100))
+        #     self.time.sleep(1)
+        # for y in range(0, 30):
+        #     self.arm.go_to(3, y / 100)
+        #     self.time.sleep(1)
+        # for c in range(157, 230):
+        #     self.arm.go_to(0, -c / 100)
+        #     self.time.sleep(1)
+        # self.arm.open_gripper()
+        # self.time.sleep(5)
+        # self.arm.go_to(1, .6)
+        # self.time.sleep(1)
+        # self.arm.go_to(0, -3.1415 / 2)
+        # self.time.sleep(1)
+        # self.arm.go_to(1, 0)
+        # self.arm.go_to(3, 0)
+        # self.time.sleep(1)
 
         print("finished!")
         time.sleep(10)
