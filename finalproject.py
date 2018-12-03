@@ -35,7 +35,7 @@ class Run:
         self.vc_theta = 0
         self.pf = particle_filter.ParticleFilter(self.map, 1500, 0.06, 0.15, 0.2)
         self.step_dist = 0.5
-        self.final_x = 0.59095
+        self.final_x = 0.57095
         self.final_y = 1.6
 
         # RRT
@@ -351,25 +351,25 @@ class Run:
             self.arm.go_to(0, (-3.1415 * (y / 30)) / 2)
             self.time.sleep(1)
 
-            # go to shelf 0
-            for x in range(140, 160):
-                self.arm.go_to(1, (x / 100))
-                self.time.sleep(1)
-            for y in range(130, 135):
-                self.arm.go_to(3, ((130 - y) / 100))
-                self.time.sleep(1)
-            for c in range(157, 210):
-                self.arm.go_to(0, -c / 100)
-                self.time.sleep(1)
-            self.arm.open_gripper()
-            self.time.sleep(5)
-            self.arm.go_to(1, self.final_y)
+        # go to shelf 0
+        for x in range(140, 160):
+            self.arm.go_to(1, (x / 100))
             self.time.sleep(1)
-            self.arm.go_to(0, -3.1415 / 2)
+        for y in range(130, 135):
+            self.arm.go_to(3, ((130 - y) / 100))
             self.time.sleep(1)
-            self.arm.go_to(1, 0)
-            self.arm.go_to(3, 0)
+        for c in range(157, 210):
+            self.arm.go_to(0, -c / 100)
             self.time.sleep(1)
+        self.arm.open_gripper()
+        self.time.sleep(5)
+        self.arm.go_to(1, self.final_y)
+        self.time.sleep(1)
+        self.arm.go_to(0, -3.1415 / 2)
+        self.time.sleep(1)
+        self.arm.go_to(1, 0)
+        self.arm.go_to(3, 0)
+        self.time.sleep(1)
         #
         # # go to shelf 1
         # for x in range(0, 35):
